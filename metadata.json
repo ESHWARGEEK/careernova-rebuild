@@ -1,0 +1,8 @@
+{
+  "name": "CareerNova",
+  "description": "CareerNova is an AI-powered career advisor that analyzes your resume to provide a detailed career analysis and personalized roadmap to success.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
