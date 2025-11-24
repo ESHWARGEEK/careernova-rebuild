@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { TrackedJob, ApplicationStatus } from '../types';
+import { TrackedJob, ApplicationStatus, AgentSearchHistoryItem } from '../types';
 import { Card } from './Card';
-import { BriefcaseIcon, Trash2Icon, CalendarIcon, FileTextIcon, ExternalLinkIcon } from './IconComponents';
+import { BriefcaseIcon, Trash2Icon, CalendarIcon, FileTextIcon, ExternalLinkIcon, BotMessageSquareIcon } from './IconComponents';
 
 const LOCAL_STORAGE_KEY = 'trackedJobs';
+const HISTORY_STORAGE_KEY = 'agentSearchHistory';
 const STATUS_ORDER: ApplicationStatus[] = ['Saved', 'Applied', 'Interviewing', 'Offer Received'];
 
 const TrackedJobCard: React.FC<{
@@ -76,8 +77,30 @@ const TrackedJobCard: React.FC<{
     );
 };
 
+const HistoryCard: React.FC<{ item: AgentSearchHistoryItem; onDelete: (id: string) => void }> = ({ item, onDelete }) => (
+    <Card className="p-4 flex flex-col justify-between">
+        <div>
+            <h3 className="font-bold text-md text-purple-300 mb-1">{item.mission}</h3>
+            <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
+                <CalendarIcon className="w-3 h-3" />
+                {new Date(item.date).toLocaleDateString()} at {new Date(item.date).toLocaleTimeString()}
+            </div>
+        </div>
+        <div className="flex justify-between items-center border-t border-white/10 pt-3">
+             <span className="text-xs font-semibold px-2 py-1 bg-indigo-500/20 text-indigo-300 rounded-md">
+                {item.resultCount} Jobs Found
+            </span>
+             <button onClick={() => onDelete(item.id)} className="text-xs flex items-center gap-1 text-red-400 hover:text-red-300 font-semibold">
+                <Trash2Icon className="w-3 h-3"/> Delete
+            </button>
+        </div>
+    </Card>
+);
+
 export const JobTrackerPage: React.FC = () => {
     const [trackedJobs, setTrackedJobs] = useState<TrackedJob[]>([]);
+    const [searchHistory, setSearchHistory] = useState<AgentSearchHistoryItem[]>([]);
+    const [activeTab, setActiveTab] = useState<'tracker' | 'history'>('tracker');
 
     useEffect(() => {
         try {
@@ -85,8 +108,12 @@ export const JobTrackerPage: React.FC = () => {
             if (storedJobs) {
                 setTrackedJobs(JSON.parse(storedJobs));
             }
+            const storedHistory = localStorage.getItem(HISTORY_STORAGE_KEY);
+            if (storedHistory) {
+                setSearchHistory(JSON.parse(storedHistory));
+            }
         } catch (error) {
-            console.error("Failed to load tracked jobs from localStorage", error);
+            console.error("Failed to load data from localStorage", error);
         }
     }, []);
 
@@ -96,6 +123,15 @@ export const JobTrackerPage: React.FC = () => {
             setTrackedJobs(jobs);
         } catch (error) {
             console.error("Failed to save tracked jobs to localStorage", error);
+        }
+    }, []);
+    
+    const saveHistory = useCallback((history: AgentSearchHistoryItem[]) => {
+        try {
+            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history));
+            setSearchHistory(history);
+        } catch (error) {
+             console.error("Failed to save history to localStorage", error);
         }
     }, []);
 
@@ -108,6 +144,15 @@ export const JobTrackerPage: React.FC = () => {
         const newJobs = trackedJobs.filter(j => j.id !== jobId);
         saveJobs(newJobs);
     };
+    
+    const handleDeleteHistory = (id: string) => {
+        const newHistory = searchHistory.filter(h => h.id !== id);
+        saveHistory(newHistory);
+    };
+    
+    const clearHistory = () => {
+        saveHistory([]);
+    }
 
     const jobsByStatus = STATUS_ORDER.reduce((acc, status) => {
         acc[status] = trackedJobs.filter(job => job.status === status);
@@ -116,32 +161,76 @@ export const JobTrackerPage: React.FC = () => {
 
     return (
         <div className="animate-fade-in space-y-6">
-            {trackedJobs.length === 0 ? (
-                <Card className="p-10 text-center">
-                    <BriefcaseIcon className="w-12 h-12 mx-auto text-gray-500" />
-                    <h2 className="mt-4 text-xl font-semibold">Your Job Tracker is Empty</h2>
-                    <p className="mt-2 text-gray-400">Find jobs in the "Find Jobs" tab and track them here to manage your application process.</p>
-                </Card>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {STATUS_ORDER.map(status => (
-                        <div key={status} className="space-y-4">
-                            <h2 className="text-lg font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-sky-400">
-                                {status} ({jobsByStatus[status].length})
-                            </h2>
-                            <div className="space-y-4">
-                                {jobsByStatus[status].map(job => (
-                                    <TrackedJobCard
-                                        key={job.id}
-                                        job={job}
-                                        onUpdate={handleUpdateJob}
-                                        onDelete={handleDeleteJob}
-                                    />
+            <div className="flex justify-center mb-6">
+                <div className="bg-black/20 p-1 rounded-lg inline-flex">
+                    <button
+                        onClick={() => setActiveTab('tracker')}
+                        className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${activeTab === 'tracker' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        <span className="flex items-center gap-2"><BriefcaseIcon className="w-4 h-4" /> My Applications</span>
+                    </button>
+                    <button
+                         onClick={() => setActiveTab('history')}
+                         className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${activeTab === 'history' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        <span className="flex items-center gap-2"><BotMessageSquareIcon className="w-4 h-4" /> Agent History</span>
+                    </button>
+                </div>
+            </div>
+
+            {activeTab === 'tracker' && (
+                <>
+                    {trackedJobs.length === 0 ? (
+                        <Card className="p-10 text-center">
+                            <BriefcaseIcon className="w-12 h-12 mx-auto text-gray-500" />
+                            <h2 className="mt-4 text-xl font-semibold">Your Job Tracker is Empty</h2>
+                            <p className="mt-2 text-gray-400">Find jobs in the "Find Jobs" tab and track them here to manage your application process.</p>
+                        </Card>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {STATUS_ORDER.map(status => (
+                                <div key={status} className="space-y-4">
+                                    <h2 className="text-lg font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-sky-400">
+                                        {status} ({jobsByStatus[status].length})
+                                    </h2>
+                                    <div className="space-y-4">
+                                        {jobsByStatus[status].map(job => (
+                                            <TrackedJobCard
+                                                key={job.id}
+                                                job={job}
+                                                onUpdate={handleUpdateJob}
+                                                onDelete={handleDeleteJob}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
+            )}
+
+            {activeTab === 'history' && (
+                <>
+                    {searchHistory.length === 0 ? (
+                         <Card className="p-10 text-center">
+                            <BotMessageSquareIcon className="w-12 h-12 mx-auto text-gray-500" />
+                            <h2 className="mt-4 text-xl font-semibold">No Search History</h2>
+                            <p className="mt-2 text-gray-400">When you use the AI Job Agent, your search missions will appear here.</p>
+                        </Card>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="flex justify-end">
+                                <button onClick={clearHistory} className="text-sm text-red-400 hover:text-red-300 underline">Clear History</button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {searchHistory.map(item => (
+                                    <HistoryCard key={item.id} item={item} onDelete={handleDeleteHistory} />
                                 ))}
                             </div>
                         </div>
-                    ))}
-                </div>
+                    )}
+                </>
             )}
         </div>
     );

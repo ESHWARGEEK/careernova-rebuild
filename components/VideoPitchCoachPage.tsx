@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from './Card';
-import { VideoIcon, SparklesIcon, CheckCircleIcon, LightbulbIcon, TrendingUpIcon } from './IconComponents';
+import { VideoIcon, SparklesIcon, TrendingUpIcon, UploadIcon, ArrowLeftIcon } from './IconComponents';
 import { analyzeVideoPitch } from '../services/geminiService';
 import { VideoPitchFeedback } from '../types';
 import { RadialProgress } from './RadialProgress';
@@ -61,6 +62,7 @@ const FeedbackDisplay: React.FC<{ feedback: VideoPitchFeedback }> = ({ feedback 
 
 export const VideoPitchCoachPage: React.FC = () => {
     const [status, setStatus] = useState<Status>('idle');
+    const [mode, setMode] = useState<'record' | 'upload' | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [timeLeft, setTimeLeft] = useState(RECORDING_DURATION);
     const [feedback, setFeedback] = useState<VideoPitchFeedback | null>(null);
@@ -73,6 +75,7 @@ export const VideoPitchCoachPage: React.FC = () => {
     const timerIntervalRef = useRef<number | null>(null);
     const capturedFramesRef = useRef<string[]>([]);
     const transcriptRef = useRef('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
     const statusRef = useRef(status);
     useEffect(() => {
@@ -241,6 +244,69 @@ export const VideoPitchCoachPage: React.FC = () => {
         }, 1000);
     };
 
+    const processUploadedVideo = async (file: File) => {
+        setStatus('processing');
+        setError(null);
+        capturedFramesRef.current = [];
+        transcriptRef.current = ''; // Reset transcript as we can't easily transcribe files client-side
+
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(file);
+        video.muted = true;
+        video.playsInline = true;
+        // video.currentTime is tricky to manage without attaching to DOM, but usually works for frame extraction
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        try {
+            await new Promise((resolve, reject) => {
+                video.onloadedmetadata = () => resolve(true);
+                video.onerror = () => reject("Could not load video metadata.");
+            });
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const duration = video.duration;
+            let currentTime = 0;
+
+            // Extract frames every 2 seconds
+            while (currentTime < duration && currentTime < 60) { // Limit to 1 minute to prevent hanging
+                video.currentTime = currentTime;
+                await new Promise(r => { video.onseeked = r; });
+                
+                if (ctx) {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const frame = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                    if (frame) capturedFramesRef.current.push(frame);
+                }
+                currentTime += 2;
+            }
+
+            handleAnalysis();
+
+        } catch (e) {
+            console.error("Error processing video file:", e);
+            setError("Could not process the uploaded video file. Please ensure it is a valid video format.");
+            setStatus('error');
+        } finally {
+            URL.revokeObjectURL(video.src);
+            video.remove();
+        }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 50 * 1024 * 1024) { // 50MB limit
+                setError("File is too large. Please upload a video under 50MB.");
+                setStatus('error');
+                return;
+            }
+            processUploadedVideo(file);
+        }
+    };
+
     const handleAnalysis = async () => {
         if (capturedFramesRef.current.length === 0) {
             setError("No video frames were captured. Please ensure your camera is not covered and has good lighting.");
@@ -250,6 +316,7 @@ export const VideoPitchCoachPage: React.FC = () => {
         }
 
         try {
+            // Note: For uploaded videos, transcriptRef is empty. The prompt handles this case.
             const result = await analyzeVideoPitch(capturedFramesRef.current, transcriptRef.current.trim());
             setFeedback(result);
             setStatus('results');
@@ -265,20 +332,66 @@ export const VideoPitchCoachPage: React.FC = () => {
         setError(null);
         setFeedback(null);
         setStatus('idle');
+        setMode(null);
+    }
+    
+    const selectMode = (m: 'record' | 'upload') => {
+        setMode(m);
+        if (m === 'record') {
+            requestPermissions(); // Initiates camera flow
+        } else {
+             // Trigger file input
+             fileInputRef.current?.click();
+        }
     }
 
     const renderContent = () => {
         switch (status) {
             case 'idle':
+                return (
+                     <div className="text-center w-full max-w-4xl mx-auto">
+                        <VideoIcon className="w-16 h-16 mx-auto text-gray-500"/>
+                        <h2 className="mt-4 text-2xl font-bold">Video Pitch Coach</h2>
+                        <p className="mt-2 text-gray-400 max-w-lg mx-auto mb-8">Practice your 30-second elevator pitch. Record live for speech analysis, or upload a video for body language feedback.</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                            <Card 
+                                onClick={() => selectMode('record')}
+                                className="p-8 cursor-pointer hover:border-purple-500 transition-all transform hover:-translate-y-1 group"
+                            >
+                                <div className="p-4 bg-red-500/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 group-hover:bg-red-500/20">
+                                    <div className="w-6 h-6 bg-red-500 rounded-full animate-pulse"></div>
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Record Live</h3>
+                                <p className="text-sm text-gray-400">Use your webcam to record a 30s pitch. Analyze speech + visuals.</p>
+                            </Card>
+
+                            <Card 
+                                onClick={() => selectMode('upload')}
+                                className="p-8 cursor-pointer hover:border-indigo-500 transition-all transform hover:-translate-y-1 group"
+                            >
+                                 <div className="p-4 bg-indigo-500/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 group-hover:bg-indigo-500/20">
+                                    <UploadIcon className="w-8 h-8 text-indigo-400" />
+                                </div>
+                                <h3 className="text-xl font-bold text-white mb-2">Upload Video</h3>
+                                <p className="text-sm text-gray-400">Upload an existing video file (MP4, MOV). Visuals analysis only.</p>
+                            </Card>
+                        </div>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            onChange={handleFileUpload} 
+                            accept="video/*" 
+                            className="hidden" 
+                        />
+                    </div>
+                );
             case 'permission':
                 return (
-                     <div className="text-center">
-                        <VideoIcon className="w-16 h-16 mx-auto text-gray-500"/>
-                        <h2 className="mt-4 text-xl font-semibold">Video Pitch Coach</h2>
-                        <p className="mt-2 text-gray-400 max-w-md mx-auto">Practice your 30-second elevator pitch and get instant, AI-powered feedback on your delivery and presentation.</p>
-                        <button onClick={requestPermissions} disabled={status === 'permission'} className="mt-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-2 px-6 rounded-lg transition-transform transform hover:scale-105 disabled:opacity-50">
-                            {status === 'permission' ? "Getting Ready..." : "Enable Camera & Mic"}
-                        </button>
+                    <div className="text-center">
+                         <div className="w-12 h-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                         <p className="mt-4 text-lg font-semibold">Accessing Camera...</p>
+                         <p className="text-sm text-gray-400">Please allow permissions in your browser.</p>
                     </div>
                 );
              case 'ready':
@@ -306,7 +419,8 @@ export const VideoPitchCoachPage: React.FC = () => {
                                 </div>
                              )}
                         </div>
-                        <div className="mt-6 flex justify-center">
+                        <div className="mt-6 flex justify-center gap-4">
+                             <button onClick={handleTryAgain} className="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105">Cancel</button>
                              {status === 'ready' && <button onClick={startRecording} disabled={!isVideoReady} className="bg-green-600 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed">
                                 {isVideoReady ? 'Start Recording' : 'Initializing...'}
                              </button>}
@@ -319,16 +433,19 @@ export const VideoPitchCoachPage: React.FC = () => {
                     <div className="text-center">
                         <div className="w-12 h-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
                         <p className="mt-4 text-lg font-semibold">Analyzing your pitch...</p>
-                        <p className="text-sm text-gray-400">This might take a moment.</p>
+                        <p className="text-sm text-gray-400">AI is watching the video frames to evaluate body language...</p>
                     </div>
                 );
             case 'results':
                 return (
-                    <div className="space-y-6">
+                    <div className="space-y-6 w-full max-w-4xl">
                         <div className="flex justify-between items-center">
-                            <h2 className="text-2xl font-bold">Your Feedback Report</h2>
-                             <button onClick={handleTryAgain} className="bg-indigo-500/20 text-indigo-300 font-bold py-2 px-4 rounded-lg transition-colors hover:bg-indigo-500/30">
-                                Record Again
+                            <div>
+                                <h2 className="text-2xl font-bold">Feedback Report</h2>
+                                {transcriptRef.current === '' && <p className="text-xs text-amber-400 mt-1">* Analysis based on visuals only (Uploaded Video)</p>}
+                            </div>
+                             <button onClick={handleTryAgain} className="flex items-center gap-2 bg-indigo-500/20 text-indigo-300 font-bold py-2 px-4 rounded-lg transition-colors hover:bg-indigo-500/30">
+                                <ArrowLeftIcon className="w-4 h-4" /> Start Over
                             </button>
                         </div>
                         {feedback && <FeedbackDisplay feedback={feedback} />}

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { RoadmapResult, CareerPath } from '../types';
-import { XCircleIcon, LightbulbIcon, BriefcaseIcon, BookOpenIcon, CheckCircleIcon } from './IconComponents';
+import { XCircleIcon, LightbulbIcon, BriefcaseIcon, BookOpenIcon, CheckCircleIcon, BrainCircuitIcon } from './IconComponents';
 
 interface RoadmapModalProps {
   isOpen: boolean;
@@ -35,14 +35,20 @@ const RoadmapTimeline: React.FC<{ roadmapData: RoadmapResult }> = ({ roadmapData
                     <p className="text-gray-700 dark:text-gray-300 mb-4">{step.description}</p>
                     
                     <div className="space-y-4">
-                        <div>
-                            <h4 className="flex items-center text-md font-semibold mb-2"><LightbulbIcon className="w-5 h-5 mr-2 text-amber-500"/>Skills to Learn</h4>
+                        <div className="bg-purple-50/50 dark:bg-purple-900/10 p-4 rounded-lg border border-purple-100 dark:border-purple-900/30">
+                            <h4 className="flex items-center text-md font-bold mb-3 text-purple-700 dark:text-purple-300">
+                                <BrainCircuitIcon className="w-5 h-5 mr-2" />
+                                Skills to Master
+                            </h4>
                             <div className="flex flex-wrap gap-2">
                                 {(step.skillsToLearn || []).map((skill, i) => (
-                                    <span key={i} className="px-2 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">{skill}</span>
+                                    <span key={i} className="px-3 py-1 text-xs font-semibold rounded-full bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 shadow-sm">
+                                        {skill}
+                                    </span>
                                 ))}
                             </div>
                         </div>
+                        
                          <div>
                             <h4 className="flex items-center text-md font-semibold mb-2"><BriefcaseIcon className="w-5 h-5 mr-2 text-green-500"/>Project Ideas</h4>
                             <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
@@ -50,7 +56,7 @@ const RoadmapTimeline: React.FC<{ roadmapData: RoadmapResult }> = ({ roadmapData
                             </ul>
                         </div>
                         <div>
-                            <h4 className="flex items-center text-md font-semibold mb-2"><BookOpenIcon className="w-5 h-5 mr-2 text-purple-500"/>Resources</h4>
+                            <h4 className="flex items-center text-md font-semibold mb-2"><BookOpenIcon className="w-5 h-5 mr-2 text-sky-500"/>Resources</h4>
                             <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
                                 {(step.resources || []).map((resource, i) => <li key={i}>{resource}</li>)}
                             </ul>

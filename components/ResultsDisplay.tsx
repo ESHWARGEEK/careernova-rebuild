@@ -7,7 +7,7 @@ import { RoadmapModal } from './RoadmapModal';
 import { InterviewModal } from './InterviewModal';
 import { RoadmapResult } from '../types';
 import { getCareerRoadmap } from '../services/geminiService';
-import { LayoutDashboardIcon, ArrowRightIcon, BrainCircuitIcon, EditIcon, FilePlusIcon, LightbulbIcon, MessageSquareQuoteIcon, SearchIcon, SparklesIcon, TrendingUpIcon, BriefcaseIcon, BotMessageSquareIcon, UsersIcon, MapIcon, LinkedinIcon, VideoIcon, Building2Icon } from './IconComponents';
+import { LayoutDashboardIcon, ArrowRightIcon, BrainCircuitIcon, EditIcon, FilePlusIcon, LightbulbIcon, MessageSquareQuoteIcon, SearchIcon, SparklesIcon, TrendingUpIcon, BriefcaseIcon, BotMessageSquareIcon, UsersIcon, MapIcon, LinkedinIcon, VideoIcon, Building2Icon, DollarSignIcon, ActivityIcon } from './IconComponents';
 import { AgenticJobSearchPage } from './AgenticJobSearchPage';
 import { JobTrackerPage } from './JobTrackerPage';
 import { ConnectionsPage } from './ConnectionsPage';
@@ -111,12 +111,38 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ analysisResult, 
                             <h3 className="font-semibold text-lg flex items-center gap-2"><TrendingUpIcon className="w-5 h-5" /> Suggested Career Paths</h3>
                             <div className="mt-4 space-y-4">
                                 {(analysisResult.suggestedRoles || []).map((path) => (
-                                    <div key={path.role} className="bg-black/20 p-3 rounded-lg">
-                                        <p className="font-bold">{path.role} - <span className="text-purple-400">{path.matchPercentage}% Match</span></p>
-                                        <p className="text-xs text-gray-400 mt-1">{path.reasoning}</p>
-                                        <div className="mt-3 flex gap-2">
-                                            <button onClick={() => handleViewRoadmap(path)} className="text-xs flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold"><LightbulbIcon className="w-3 h-3" /> Roadmap</button>
-                                            <button onClick={() => handlePracticeInterview(path)} className="text-xs flex items-center gap-1 text-sky-400 hover:text-sky-300 font-semibold"><MessageSquareQuoteIcon className="w-3 h-3"/> Interview</button>
+                                    <div key={path.role} className="bg-black/20 p-4 rounded-lg border border-white/5 hover:border-purple-500/30 transition-colors">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <p className="font-bold text-lg text-white">{path.role}</p>
+                                            <span className="text-xs font-bold px-2 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">{path.matchPercentage}% Match</span>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 gap-2 mb-3">
+                                            <div className="flex items-center gap-1.5 text-xs text-gray-300 bg-black/30 p-1.5 rounded">
+                                                <DollarSignIcon className="w-3.5 h-3.5 text-green-400" />
+                                                <span>{path.salaryRange || 'N/A'}</span>
+                                            </div>
+                                             <div className="flex items-center gap-1.5 text-xs text-gray-300 bg-black/30 p-1.5 rounded">
+                                                <ActivityIcon className="w-3.5 h-3.5 text-sky-400" />
+                                                <span>Demand: {path.marketDemand || 'N/A'}</span>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-xs text-gray-400 mb-3">{path.reasoning}</p>
+                                        
+                                        {path.growthOutlook && (
+                                            <p className="text-xs text-gray-500 italic mb-3 flex items-center gap-1">
+                                                <TrendingUpIcon className="w-3 h-3" /> {path.growthOutlook}
+                                            </p>
+                                        )}
+
+                                        <div className="mt-3 flex gap-2 border-t border-white/10 pt-3">
+                                            <button onClick={() => handleViewRoadmap(path)} className="flex-1 text-xs flex items-center justify-center gap-1 bg-indigo-500/10 text-indigo-300 py-2 rounded hover:bg-indigo-500/20 transition-colors font-semibold">
+                                                <LightbulbIcon className="w-3 h-3" /> Roadmap
+                                            </button>
+                                            <button onClick={() => handlePracticeInterview(path)} className="flex-1 text-xs flex items-center justify-center gap-1 bg-sky-500/10 text-sky-300 py-2 rounded hover:bg-sky-500/20 transition-colors font-semibold">
+                                                <MessageSquareQuoteIcon className="w-3 h-3"/> Interview
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -154,6 +180,9 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ analysisResult, 
               <button onClick={() => setActiveTab('analysis')} className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${activeTab === 'analysis' ? 'bg-purple-600 text-white' : 'bg-white/10 hover:bg-white/20'}`}>
                   <BrainCircuitIcon className="w-5 h-5" /> Analysis
               </button>
+              <button onClick={onEditResume} className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 bg-white/10 hover:bg-white/20`}>
+                  <EditIcon className="w-5 h-5" /> Edit Resume
+              </button>
                <button onClick={() => setActiveTab('vibe')} className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${activeTab === 'vibe' ? 'bg-purple-600 text-white' : 'bg-white/10 hover:bg-white/20'}`}>
                   <Building2Icon className="w-5 h-5" /> Vibe Check
               </button>
@@ -165,6 +194,9 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ analysisResult, 
               </button>
                <button onClick={() => setActiveTab('linkedin')} className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${activeTab === 'linkedin' ? 'bg-purple-600 text-white' : 'bg-white/10 hover:bg-white/20'}`}>
                   <LinkedinIcon className="w-5 h-5" /> LinkedIn
+              </button>
+              <button onClick={() => setActiveTab('connections')} className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${activeTab === 'connections' ? 'bg-purple-600 text-white' : 'bg-white/10 hover:bg-white/20'}`}>
+                  <UsersIcon className="w-5 h-5" /> Connections
               </button>
               <button onClick={() => setActiveTab('tracker')} className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${activeTab === 'tracker' ? 'bg-purple-600 text-white' : 'bg-white/10 hover:bg-white/20'}`}>
                   <BriefcaseIcon className="w-5 h-5" /> Tracker

@@ -8,6 +8,9 @@ export interface CareerPath {
   role: string;
   matchPercentage: number;
   reasoning: string;
+  salaryRange: string;
+  marketDemand: string;
+  growthOutlook: string;
 }
 
 export interface AnalysisResult {
@@ -96,6 +99,13 @@ export interface TrackedJob extends JobListing {
   status: ApplicationStatus;
   applicationDate?: string;
   notes?: string;
+}
+
+export interface AgentSearchHistoryItem {
+  id: string;
+  mission: string;
+  date: string;
+  resultCount: number;
 }
 
 export interface ExperienceEntry {

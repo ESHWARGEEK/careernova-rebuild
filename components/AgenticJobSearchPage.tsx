@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { JobListing } from '../types';
+import { JobListing, AgentSearchHistoryItem } from '../types';
 import { Card } from './Card';
 import { BotMessageSquareIcon, LightbulbIcon, BookmarkIcon, ExternalLinkIcon, CheckCircleIcon } from './IconComponents';
 import { runJobSearchAgentStream } from '../services/geminiService';
@@ -53,6 +53,8 @@ export const AgenticJobSearchPage: React.FC<AgenticJobSearchPageProps> = ({ resu
         setPlan([]);
         setAgentLogs([]);
         setJobListings([]);
+        
+        let foundJobs: JobListing[] = [];
 
         try {
             const stream = await runJobSearchAgentStream(mission, resumeSummary);
@@ -76,12 +78,30 @@ export const AgenticJobSearchPage: React.FC<AgenticJobSearchPageProps> = ({ resu
                         const parsedJobs = JSON.parse(jobsContent);
                         if (parsedJobs.jobs && Array.isArray(parsedJobs.jobs)) {
                             setJobListings(parsedJobs.jobs);
+                            foundJobs = parsedJobs.jobs;
                         }
                     } catch (parseError) {
                         console.warn("Could not parse jobs JSON yet, waiting for more data...");
                     }
                 }
             }
+            
+            // Save search history
+            try {
+                const historyItem: AgentSearchHistoryItem = {
+                    id: Date.now().toString(),
+                    mission,
+                    date: new Date().toISOString(),
+                    resultCount: foundJobs.length
+                };
+                const existingHistoryRaw = localStorage.getItem('agentSearchHistory');
+                const existingHistory: AgentSearchHistoryItem[] = existingHistoryRaw ? JSON.parse(existingHistoryRaw) : [];
+                const newHistory = [historyItem, ...existingHistory];
+                localStorage.setItem('agentSearchHistory', JSON.stringify(newHistory));
+            } catch (historyError) {
+                console.error("Failed to save search history", historyError);
+            }
+
         } catch (err: any) {
             console.error("Agentic search failed:", err);
             setError(err.message || "An unexpected error occurred. Please try again.");

@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { AnalysisResult, CareerPath, InterviewTurn, RoadmapResult, ResumeSuggestionsResult, UpdatedAtsScoreResult, JobListing, StructuredResume, LinkedInConnectionsResult, CareerTrajectoryResult, JobFitAnalysisResult, MessageGoal, LinkedInConnection, SuggestedNextStep, LinkedInOptimizationResult, VideoPitchFeedback, InterviewReportResult, UserVibeProfile, CompanyVibeAnalysisResult } from "../types";
 import * as pdfjsLib from 'pdfjs-dist';
@@ -92,7 +91,10 @@ const analysisSchema = {
                 properties: {
                     role: { type: Type.STRING, description: "A suggested job role." },
                     matchPercentage: { type: Type.INTEGER, description: "A percentage match score for this role." },
-                    reasoning: { type: Type.STRING, description: "Reasoning for why this role is a good fit." }
+                    reasoning: { type: Type.STRING, description: "Reasoning for why this role is a good fit." },
+                    salaryRange: { type: Type.STRING, description: "Estimated annual salary range (e.g. '$80k - $120k') in USD." },
+                    marketDemand: { type: Type.STRING, description: "The current market demand for this role (e.g., 'High', 'Medium', 'Growing')." },
+                    growthOutlook: { type: Type.STRING, description: "A brief phrase describing future growth potential (e.g. '15% growth expected over next decade')." }
                 }
             }
         }
@@ -105,7 +107,7 @@ export const analyzeResume = async (file: File): Promise<AnalysisResult> => {
         throw new Error("Could not extract any text from the resume file. It might be an image-based file or empty.");
     }
 
-    const prompt = `Analyze the provided resume text and return a comprehensive career analysis. Focus on identifying key strengths, areas for improvement, and suggesting suitable job roles. Provide an estimated ATS score. Here is the resume text:\n\n${resumeText}`;
+    const prompt = `Analyze the provided resume text and return a comprehensive career analysis. Focus on identifying key strengths, areas for improvement, and suggesting suitable job roles. For each suggested role, provide an estimated salary range, market demand, and future growth outlook. Provide an estimated ATS score. Here is the resume text:\n\n${resumeText}`;
 
     const response = await generateWithRetry('gemini-2.5-flash', {
         contents: prompt,
@@ -125,7 +127,7 @@ export const analyzeResume = async (file: File): Promise<AnalysisResult> => {
 };
 
 export const getCareerRoadmap = async (careerPath: CareerPath, resumeSummary: string): Promise<RoadmapResult> => {
-    const prompt = `Create a detailed, step-by-step career roadmap for a person with the following summary: "${resumeSummary}" who wants to become a ${careerPath.role}. The roadmap should have 3-5 stages, from beginner to advanced. For each stage, provide a description, a list of specific skills to learn, practical project ideas, and recommended resources (like online courses, books, or tools).`;
+    const prompt = `Create a detailed, step-by-step career roadmap for a person with the following summary: "${resumeSummary}" who wants to become a ${careerPath.role}. The roadmap should have 3-5 stages, from beginner to advanced. For each stage, provide a description, a comprehensive list of specific technical and soft skills to master, practical project ideas, and recommended resources (like online courses, books, or tools).`;
     const schema = {
         type: Type.OBJECT,
         properties: {
@@ -415,7 +417,7 @@ export const findLinkedInConnections = async (company: string, role: string): Pr
     Each connection object must have the following keys:
     - "name": The person's full name.
     - "title": Their current title at the company.
-    - "linkedinUrl": A direct Google search URL to find their LinkedIn profile, formatted like this: "https://www.google.com/search?q=site%3Alinkedin.com%2Fin%2F+John+Doe+Example+Company". Replace "John Doe" and "Example Company" accordingly.
+    - "linkedinUrl": The direct LinkedIn profile URL (e.g. https://www.linkedin.com/in/johndoe). If you cannot find the exact profile URL, provide a LinkedIn search URL formatted as: "https://www.linkedin.com/search/results/people/?keywords=Name+Company".
 
     Do not include any text, commentary, or markdown formatting outside of the JSON object.`;
 
@@ -768,7 +770,7 @@ export const analyzeVideoPitch = async (frames: string[], transcript: string): P
     };
 
     const response = await generateWithRetry('gemini-2.5-flash', {
-        contents: { parts: [textPart, ...imageParts] },
+        contents: { parts: [imageParts[0] ? imageParts : [], textPart].flat() },
         config: {
             responseMimeType: 'application/json',
             responseSchema: schema
